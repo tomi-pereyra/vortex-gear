@@ -1,12 +1,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import { prisma } from './lib/prisma.js';
 
 const app = Fastify({
   logger: true,
-});
-
-app.register(cors, {
-  origin: true,
 });
 
 app.get('/status', async () => {
@@ -18,34 +15,71 @@ app.get('/status', async () => {
   };
 });
 
-app.get('/produtos-teste', async () => {
-  return [
-    {
-      id: 'prod-01',
-      nome: 'Mouse Gamer Vortex Phantom Pro Wireless 8000Hz (39g)',
-      categoria: 'Mouses',
-      preco: 849.9,
-      estoque: 15,
+app.get('/categories', async () => {
+  const categories = await prisma.category.findMany({
+    orderBy: {
+      name: 'asc',
     },
-    {
-      id: 'prod-02',
-      nome: 'Teclado Mecânico Magnético Vortex Apex HE Rapid Trigger 60%',
-      categoria: 'Teclados',
-      preco: 1299.0,
-      estoque: 8,
+  });
+
+  return categories;
+});
+
+app.get('/products', async (request) => {
+  const { category } = request.query as { category?: string };
+
+  const products = await prisma.product.findMany({
+    where: category
+      ? {
+          category: {
+            slug: category,
+          },
+        }
+      : undefined,
+    include: {
+      category: true,
     },
-    {
-      id: 'prod-03',
-      nome: 'Monitor Gamer Vortex Horizon 27" QHD Fast IPS 240Hz 0.5ms',
-      categoria: 'Monitores',
-      preco: 2499.9,
-      estoque: 5,
+    orderBy: {
+      createdAt: 'desc',
     },
-  ];
+  });
+
+  return products.map((product) => ({
+    ...product,
+    specs: JSON.parse(product.specs),
+  }));
+});
+
+app.get('/products/:slug', async (request, reply) => {
+  const { slug } = request.params as { slug: string };
+
+  const product = await prisma.product.findUnique({
+    where: { slug },
+    include: {
+      category: true,
+    },
+  });
+
+  if (!product) {
+    return reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: `Produto com slug '${slug}' não foi encontrado.`,
+    });
+  }
+
+  return {
+    ...product,
+    specs: JSON.parse(product.specs),
+  };
 });
 
 const start = async () => {
   try {
+    await app.register(cors, {
+      origin: true,
+    });
+
     const port = 3333;
     await app.listen({ port, host: '0.0.0.0' });
     console.log(`⚡ Servidor Vortex Gear rodando em http://localhost:${port}`);
@@ -56,4 +90,3 @@ const start = async () => {
 };
 
 start();
-
