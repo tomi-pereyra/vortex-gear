@@ -15,18 +15,41 @@ model Category {
 }
 
 model Product {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   name          String
-  slug          String   @unique
+  slug          String      @unique
   description   String
   price         Float
   discountPrice Float?
   stock         Int
   imageUrl      String
   specs         String
-  featured      Boolean  @default(false)
+  featured      Boolean     @default(false)
   categoryId    String
-  category      Category @relation(fields: [categoryId], references: [id])
-  createdAt     DateTime @default(now())
+  category      Category    @relation(fields: [categoryId], references: [id])
+  orderItems    OrderItem[]
+  createdAt     DateTime    @default(now())
 }
 
+model Order {
+  id             String      @id @default(uuid())
+  customerName   String
+  customerEmail  String
+  paymentMethod  String
+  couponCode     String?
+  discountAmount Float       @default(0)
+  totalAmount    Float
+  status         String      @default("PAID")
+  items          OrderItem[]
+  createdAt      DateTime    @default(now())
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  order     Order   @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+}
