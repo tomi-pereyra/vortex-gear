@@ -12,6 +12,7 @@ const createOrderBodySchema = z.object({
   customerEmail: z.string().email('E-mail inválido'),
   paymentMethod: z.enum(['PIX', 'CREDIT_CARD']),
   couponCode: z.string().optional().nullable(),
+  userId: z.string().uuid().optional().nullable(),
   items: z
     .array(
       z.object({
@@ -35,8 +36,20 @@ export async function ordersRoutes(app: FastifyInstance) {
       });
     }
 
-    const { customerName, customerEmail, paymentMethod, couponCode, items } =
+    const { customerName, customerEmail, paymentMethod, couponCode, userId, items } =
       parseResult.data;
+
+    // Se o usuário estiver autenticado via token JWT, associamos automaticamente
+    let orderUserId = userId;
+    try {
+      await request.jwtVerify();
+      const authUser = request.user as { sub?: string };
+      if (authUser?.sub) {
+        orderUserId = authUser.sub;
+      }
+    } catch {
+      // Pedido como visitante (guest checkout) permitido
+    }
 
     const productIds = items.map((i) => i.productId);
     const productsInDb = await prisma.product.findMany({
@@ -118,9 +131,10 @@ export async function ordersRoutes(app: FastifyInstance) {
           });
         }
 
-        // Cria o Pedido com os itens
+        // Cria o Pedido com os itens e associação ao usuário se logado
         const createdOrder = await tx.order.create({
           data: {
+            userId: orderUserId || null,
             customerName,
             customerEmail,
             paymentMethod,
@@ -179,4 +193,3 @@ export async function ordersRoutes(app: FastifyInstance) {
     return orders;
   });
 }
-

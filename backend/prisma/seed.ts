@@ -1,42 +1,70 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🧹 Limpando banco de dados...');
-  await prisma.product.deleteMany();
-  await prisma.category.deleteMany();
+  console.log('🧹 Limpando itens e pedidos antigos...');
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
 
-  console.log('📂 Criando categorias gamer...');
-  const mousesCategory = await prisma.category.create({
-    data: {
-      name: 'Mouses',
-      slug: 'mouses',
+  console.log('👤 Criando ou atualizando usuários padrão (Admin e Cliente)...');
+  const adminPasswordHash = await bcrypt.hash('admin123', 8);
+  const clientePasswordHash = await bcrypt.hash('cliente123', 8);
+
+  const admin = await prisma.user.upsert({
+    where: { email: 'admin@vortexgear.com' },
+    update: {
+      name: 'Admin Vortex',
+      role: 'ADMIN',
+      passwordHash: adminPasswordHash,
+    },
+    create: {
+      name: 'Admin Vortex',
+      email: 'admin@vortexgear.com',
+      passwordHash: adminPasswordHash,
+      role: 'ADMIN',
+      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
     },
   });
 
-  const tecladosCategory = await prisma.category.create({
-    data: {
-      name: 'Teclados',
-      slug: 'teclados',
+  const cliente = await prisma.user.upsert({
+    where: { email: 'cliente@vortexgear.com' },
+    update: {
+      name: 'Player One',
+      role: 'CUSTOMER',
+      passwordHash: clientePasswordHash,
+    },
+    create: {
+      name: 'Player One',
+      email: 'cliente@vortexgear.com',
+      passwordHash: clientePasswordHash,
+      role: 'CUSTOMER',
+      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&q=80',
     },
   });
 
-  const monitoresCategory = await prisma.category.create({
-    data: {
-      name: 'Monitores',
-      slug: 'monitores',
-    },
-  });
+  console.log(`✅ Usuários criados: ${admin.email} (ADMIN), ${cliente.email} (CUSTOMER)`);
 
-  const audioCategory = await prisma.category.create({
-    data: {
-      name: 'Áudio',
-      slug: 'audio',
-    },
-  });
+  console.log('📂 Verificando categorias gamer...');
+  const categoriesData = [
+    { name: 'Mouses', slug: 'mouses' },
+    { name: 'Teclados', slug: 'teclados' },
+    { name: 'Monitores', slug: 'monitores' },
+    { name: 'Áudio', slug: 'audio' },
+  ];
 
-  console.log('🎮 Cadastrando catálogo de periféricos Vortex Gear...');
+  const categories: Record<string, any> = {};
+  for (const cat of categoriesData) {
+    const category = await prisma.category.upsert({
+      where: { slug: cat.slug },
+      update: { name: cat.name },
+      create: cat,
+    });
+    categories[cat.slug] = category;
+  }
+
+  console.log('🎮 Cadastrando ou atualizando catálogo de periféricos Vortex Gear...');
 
   const products = [
     {
@@ -58,7 +86,7 @@ async function main() {
         Conexao: '2.4GHz HyperSpeed / USB-C Paracord',
       }),
       featured: true,
-      categoryId: mousesCategory.id,
+      categoryId: categories['mouses'].id,
     },
     {
       name: 'Mouse Gamer Vortex Viper Zero Carbon 8K',
@@ -79,7 +107,7 @@ async function main() {
         Bateria: 'Até 90 horas (1000Hz)',
       }),
       featured: false,
-      categoryId: mousesCategory.id,
+      categoryId: categories['mouses'].id,
     },
     {
       name: 'Teclado Mecânico Magnético Vortex Apex HE Rapid Trigger 60%',
@@ -100,7 +128,7 @@ async function main() {
         Keycaps: 'PBT Double-Shot Perfil OEM',
       }),
       featured: true,
-      categoryId: tecladosCategory.id,
+      categoryId: categories['teclados'].id,
     },
     {
       name: 'Teclado Magnético Vortex Pulse 75% HE Gasket Mount Alumínio',
@@ -121,7 +149,7 @@ async function main() {
         Estrutura: 'Gasket Mount com 5 camadas de espuma acústica',
       }),
       featured: true,
-      categoryId: tecladosCategory.id,
+      categoryId: categories['teclados'].id,
     },
     {
       name: 'Monitor Gamer Vortex Horizon 27" QHD Fast IPS 240Hz 0.5ms',
@@ -142,7 +170,7 @@ async function main() {
         Conexoes: '2x DisplayPort 1.4, 2x HDMI 2.1, Hub USB 3.2',
       }),
       featured: false,
-      categoryId: monitoresCategory.id,
+      categoryId: categories['monitores'].id,
     },
     {
       name: 'Monitor Gamer Vortex Nebula 34" QD-OLED Ultrawide 360Hz 0.03ms',
@@ -163,7 +191,7 @@ async function main() {
         Conexoes: 'DisplayPort 1.4a DSC, 2x HDMI 2.1, USB-C 90W PD',
       }),
       featured: true,
-      categoryId: monitoresCategory.id,
+      categoryId: categories['monitores'].id,
     },
     {
       name: 'Headset Wireless Vortex Aether Pro Planar Magnético',
@@ -184,7 +212,7 @@ async function main() {
         AudioEspacial: 'Sonar DSP 3D Custom EQ',
       }),
       featured: true,
-      categoryId: audioCategory.id,
+      categoryId: categories['audio'].id,
     },
     {
       name: 'In-Ear Monitor Gamer Vortex Sonic IEM Hybrid Dual-Driver',
@@ -205,17 +233,19 @@ async function main() {
         Peso: '5.2g por cápsula (Resina Médica Impressa 3D)',
       }),
       featured: false,
-      categoryId: audioCategory.id,
+      categoryId: categories['audio'].id,
     },
   ];
 
   for (const product of products) {
-    await prisma.product.create({
-      data: product,
+    await prisma.product.upsert({
+      where: { slug: product.slug },
+      update: product,
+      create: product,
     });
   }
 
-  console.log(`✅ Seed finalizado com sucesso: 4 categorias e ${products.length} produtos criados!`);
+  console.log(`✅ Catálogo atualizado com sucesso: ${products.length} produtos.`);
 }
 
 main()
@@ -226,4 +256,3 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
-

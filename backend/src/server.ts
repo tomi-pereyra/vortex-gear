@@ -1,8 +1,11 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import fjwt from '@fastify/jwt';
 import { catalogRoutes } from './routes/catalog.js';
 import { couponsRoutes } from './routes/coupons.js';
 import { ordersRoutes } from './routes/orders.js';
+import { authRoutes } from './routes/auth.js';
+import { adminRoutes } from './routes/admin.js';
 
 const app = Fastify({
   logger: true,
@@ -23,6 +26,12 @@ const start = async () => {
       origin: true,
     });
 
+    await app.register(fjwt, {
+      secret: process.env.JWT_SECRET || 'vortex-gear-super-secret-key-2026',
+    });
+
+    await app.register(authRoutes);
+    await app.register(adminRoutes);
     await app.register(catalogRoutes);
     await app.register(couponsRoutes);
     await app.register(ordersRoutes);
