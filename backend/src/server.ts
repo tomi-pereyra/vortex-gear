@@ -36,7 +36,7 @@ const start = async () => {
     await app.register(couponsRoutes);
     await app.register(ordersRoutes);
 
-    const port = 3333;
+    const port = Number(process.env.PORT) || 3333;
     await app.listen({ port, host: '0.0.0.0' });
     console.log(`⚡ Servidor Vortex Gear rodando em http://localhost:${port}`);
   } catch (err) {
