@@ -18,9 +18,14 @@ const loginBodySchema = z.object({
   password: z.string().min(1, 'Senha é obrigatória'),
 });
 
-const googleAuthBodySchema = z.object({
-  credential: z.string().min(10, 'Google ID Token (credential) é obrigatório'),
-});
+const googleAuthBodySchema = z
+  .object({
+    credential: z.string().optional(),
+    accessToken: z.string().optional(),
+  })
+  .refine((data) => Boolean(data.credential || data.accessToken), {
+    message: 'Google ID Token (credential) ou accessToken é obrigatório',
+  });
 
 export async function authRoutes(app: FastifyInstance) {
   // POST /auth/register
@@ -154,25 +159,73 @@ export async function authRoutes(app: FastifyInstance) {
       });
     }
 
-    const { credential } = parseResult.data;
+    const { credential, accessToken } = parseResult.data;
 
     try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: credential,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      let email: string;
+      let name: string;
+      let googleId: string;
+      let avatarUrl: string | null | undefined;
 
-      const payload = ticket.getPayload();
+      if (credential) {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: process.env.GOOGLE_CLIENT_ID,
+        });
 
-      if (!payload || !payload.email) {
+        const payload = ticket.getPayload();
+
+        if (!payload || !payload.email) {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: 'Falha ao validar as informações do usuário junto ao Google.',
+          });
+        }
+
+        email = payload.email;
+        name = payload.name || 'Usuário Google';
+        googleId = payload.sub;
+        avatarUrl = payload.picture;
+      } else if (accessToken) {
+        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+
+        if (!res.ok) {
+          return reply.status(401).send({
+            statusCode: 401,
+            error: 'Unauthorized',
+            message: 'Token Google OAuth2 inválido ou expirado.',
+          });
+        }
+
+        const data = (await res.json()) as {
+          sub: string;
+          email: string;
+          name?: string;
+          picture?: string;
+        };
+
+        if (!data.email) {
+          return reply.status(400).send({
+            statusCode: 400,
+            error: 'Bad Request',
+            message: 'E-mail não encontrado no perfil do Google.',
+          });
+        }
+
+        email = data.email;
+        name = data.name || 'Usuário Google';
+        googleId = data.sub;
+        avatarUrl = data.picture;
+      } else {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: 'Falha ao validar as informações do usuário junto ao Google.',
+          message: 'Token do Google ausente.',
         });
       }
-
-      const { email, name, sub: googleId, picture: avatarUrl } = payload;
 
       let user = await prisma.user.findFirst({
         where: {
