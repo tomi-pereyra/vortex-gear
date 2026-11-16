@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/store/useAuthStore';
-import { LogIn, Lock, Mail, AlertCircle } from 'lucide-react';
+import { LogIn, Lock, Mail, AlertCircle, Zap, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 
 const GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
@@ -62,23 +63,33 @@ export default function LoginPage() {
 
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-      <div className="flex min-h-[calc(100vh-120px)] items-center justify-center px-4 py-12 bg-zinc-950">
-        <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/90 p-8 shadow-2xl backdrop-blur-xl">
+      <div className="flex min-h-[calc(100vh-140px)] items-center justify-center px-4 py-12 bg-zinc-950">
+        <div className="w-full max-w-md rounded-3xl border border-zinc-800/80 bg-zinc-900/90 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-6">
+            <Link href="/" className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white transition-colors">
+              <ArrowLeft className="h-3.5 w-3.5" />
+              <span>Voltar à Loja</span>
+            </Link>
+          </div>
+
           <div className="text-center">
-            <h1 className="text-2xl font-black text-white">Acessar Conta</h1>
-            <p className="mt-1 text-xs text-zinc-400">
-              Faça login para acompanhar seus pedidos e finalizar compras
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-violet-600/20 text-violet-400 border border-violet-500/30 mb-3 shadow-[0_0_20px_rgba(139,92,246,0.2)]">
+              <Zap className="h-6 w-6 fill-violet-400" />
+            </div>
+            <h1 className="text-2xl font-black text-white">Entrar na Vortex Gear</h1>
+            <p className="mt-1.5 text-xs text-zinc-400">
+              Acesse sua conta para acompanhar pedidos ou acessar o painel
             </p>
           </div>
 
           {error && (
-            <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+            <div className="mt-5 flex items-center gap-2.5 rounded-xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
           )}
 
-          {/* LOGIN GOOGLE */}
+          {/* BOTÃO GOOGLE */}
           <div className="mt-6 flex flex-col items-center justify-center">
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
@@ -98,22 +109,22 @@ export default function LoginPage() {
             <div className="h-px flex-1 bg-zinc-800" />
           </div>
 
-          {/* FORMULÁRIO LOCAL */}
+          {/* FORMULÁRIO TRADICIONAL */}
           <form onSubmit={handleTraditionalLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-300">
                 E-mail
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="email"
                   required
                   placeholder="admin@vortexgear.com ou cliente@vortexgear.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 pl-10 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 pl-10 text-xs text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
-                <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-zinc-500" />
+                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
               </div>
             </div>
 
@@ -121,35 +132,35 @@ export default function LoginPage() {
               <label className="block text-xs font-semibold text-zinc-300">
                 Senha
               </label>
-              <div className="relative mt-1">
+              <div className="relative mt-1.5">
                 <input
                   type="password"
                   required
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2 pl-10 text-sm text-zinc-100 placeholder-zinc-600 focus:border-emerald-500 focus:outline-none"
+                  className="w-full rounded-xl border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 pl-10 text-xs text-zinc-100 placeholder-zinc-600 focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500"
                 />
-                <Lock className="absolute left-3.5 top-2.5 h-4 w-4 text-zinc-500" />
+                <Lock className="absolute left-3.5 top-3 h-4 w-4 text-zinc-500" />
               </div>
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-zinc-950 hover:bg-emerald-400 transition-colors disabled:opacity-50"
+              className="mt-2 flex w-full h-11 items-center justify-center gap-2 rounded-xl bg-violet-600 text-xs font-bold text-white hover:bg-violet-500 transition-all shadow-[0_0_15px_rgba(139,92,246,0.3)] hover:shadow-[0_0_20px_rgba(139,92,246,0.5)] disabled:opacity-50"
             >
               <LogIn className="h-4 w-4" />
-              <span>{loading ? 'Entrando...' : 'Entrar na Vortex Gear'}</span>
+              <span>{loading ? 'Autenticando...' : 'Entrar na Conta'}</span>
             </button>
           </form>
 
-          {/* CREDENCIAIS DE TESTE */}
-          <div className="mt-6 rounded-xl border border-zinc-800/80 bg-zinc-950/60 p-3 text-[11px] text-zinc-400">
-            <span className="font-bold text-zinc-300">Contas de teste padrão:</span>
-            <div className="mt-1 flex flex-col gap-0.5">
-              <span>👑 Admin: <code>admin@vortexgear.com</code> / <code>admin123</code></span>
-              <span>🎮 Cliente: <code>cliente@vortexgear.com</code> / <code>cliente123</code></span>
+          {/* DICA DE CREDENCIAIS PRÉ-CONFIGURADAS */}
+          <div className="mt-6 rounded-2xl border border-zinc-800/80 bg-zinc-950/60 p-4 text-[11px] text-zinc-400">
+            <span className="font-bold text-zinc-200">Credenciais pré-configuradas:</span>
+            <div className="mt-1.5 flex flex-col gap-1 font-mono text-[10px]">
+              <div>👑 Admin: <span className="text-zinc-300">admin@vortexgear.com</span> / <span className="text-zinc-300">admin123</span></div>
+              <div>🎮 Cliente: <span className="text-zinc-300">cliente@vortexgear.com</span> / <span className="text-zinc-300">cliente123</span></div>
             </div>
           </div>
         </div>
@@ -157,4 +168,3 @@ export default function LoginPage() {
     </GoogleOAuthProvider>
   );
 }
-
