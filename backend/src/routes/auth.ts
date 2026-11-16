@@ -1,8 +1,11 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { OAuth2Client } from 'google-auth-library';
 import { prisma } from '../lib/prisma.js';
 import { verifyJwt } from '../middlewares/auth.js';
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const registerBodySchema = z.object({
   name: z.string().min(2, 'Nome deve ter ao menos 2 caracteres'),
@@ -16,10 +19,7 @@ const loginBodySchema = z.object({
 });
 
 const googleAuthBodySchema = z.object({
-  email: z.string().email('E-mail inválido'),
-  name: z.string().min(1, 'Nome é obrigatório'),
-  googleId: z.string().min(1, 'Google ID é obrigatório'),
-  avatarUrl: z.string().url().optional().nullable(),
+  credential: z.string().min(10, 'Google ID Token (credential) é obrigatório'),
 });
 
 export async function authRoutes(app: FastifyInstance) {
@@ -141,7 +141,7 @@ export async function authRoutes(app: FastifyInstance) {
     };
   });
 
-  // POST /auth/google
+  // POST /auth/google (Validação Oficial via google-auth-library)
   app.post('/auth/google', async (request, reply) => {
     const parseResult = googleAuthBodySchema.safeParse(request.body);
 
@@ -149,57 +149,81 @@ export async function authRoutes(app: FastifyInstance) {
       return reply.status(400).send({
         statusCode: 400,
         error: 'Bad Request',
-        message: 'Dados de autenticação Google inválidos.',
+        message: 'Token de credencial do Google não fornecido ou inválido.',
         issues: parseResult.error.format(),
       });
     }
 
-    const { email, name, googleId, avatarUrl } = parseResult.data;
+    const { credential } = parseResult.data;
 
-    // Busca usuário existente por email ou googleId
-    let user = await prisma.user.findFirst({
-      where: {
-        OR: [{ email }, { googleId }],
-      },
-    });
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: process.env.GOOGLE_CLIENT_ID,
+      });
 
-    if (user) {
-      // Atualiza vínculo com Google e avatar se fornecido
-      user = await prisma.user.update({
-        where: { id: user.id },
-        data: {
-          googleId,
-          avatarUrl: avatarUrl || user.avatarUrl,
+      const payload = ticket.getPayload();
+
+      if (!payload || !payload.email) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Falha ao validar as informações do usuário junto ao Google.',
+        });
+      }
+
+      const { email, name, sub: googleId, picture: avatarUrl } = payload;
+
+      let user = await prisma.user.findFirst({
+        where: {
+          OR: [{ email }, { googleId }],
         },
       });
-    } else {
-      // Cria novo usuário como CUSTOMER
-      user = await prisma.user.create({
-        data: {
-          email,
-          name,
-          googleId,
-          avatarUrl: avatarUrl || null,
-          role: 'CUSTOMER',
+
+      if (user) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            googleId,
+            avatarUrl: avatarUrl || user.avatarUrl,
+            name: user.name || name || 'Usuário Google',
+          },
+        });
+      } else {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name: name || 'Usuário Google',
+            googleId,
+            avatarUrl: avatarUrl || null,
+            role: 'CUSTOMER',
+          },
+        });
+      }
+
+      const token = app.jwt.sign(
+        { role: user.role, name: user.name, email: user.email },
+        { sub: user.id, expiresIn: '7d' }
+      );
+
+      return {
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          avatarUrl: user.avatarUrl,
         },
+        token,
+      };
+    } catch (err: any) {
+      request.log.error(err);
+      return reply.status(401).send({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Token Google OAuth2 inválido ou expirado.',
       });
     }
-
-    const token = app.jwt.sign(
-      { role: user.role, name: user.name, email: user.email },
-      { sub: user.id, expiresIn: '7d' }
-    );
-
-    return {
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        avatarUrl: user.avatarUrl,
-      },
-      token,
-    };
   });
 
   // GET /auth/me
@@ -252,4 +276,3 @@ export async function authRoutes(app: FastifyInstance) {
     }
   );
 }
-
